@@ -1,51 +1,44 @@
 <?php
-
-                // প্রতিটি admin/*.php ফাইলের শুরুতে
-                if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
-                    header("Location: index.php");
-                    exit;
-                }
-                
-include '../config/db.php';
-if (!isset($_SESSION['admin_id'])) {
+if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
     header("Location: index.php");
     exit;
 }
 
-// ডিলিট
+include '../config/db.php';
+
+// ✅ DELETE — prepared statement
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $conn->query("DELETE FROM jobs WHERE id = $id");
+    $stmt = $conn->prepare("DELETE FROM jobs WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $stmt->close();
     header("Location: jobs.php");
     exit;
 }
 
-// সেভ (যোগ বা আপডেট)
+// ✅ INSERT / UPDATE — prepared statement
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_job'])) {
-    $id = $_POST['id'] ?? 0;
-    $title = $conn->real_escape_string($_POST['title']);
-    $company = $conn->real_escape_string($_POST['company']);
-    $location = $conn->real_escape_string($_POST['location']);
-    $salary = $conn->real_escape_string($_POST['salary']);
-    $description = $conn->real_escape_string($_POST['description']);
+    $id          = intval($_POST['id'] ?? 0);
+    $title       = trim($_POST['title']);
+    $company     = trim($_POST['company']);
+    $location    = trim($_POST['location']);
+    $salary      = trim($_POST['salary']);
+    $description = trim($_POST['description']);
 
     if ($id) {
-        $conn->query("UPDATE jobs SET
-            title = '$title',
-            company = '$company',
-            location = '$location',
-            salary = '$salary',
-            description = '$description'
-            WHERE id = $id");
+        $stmt = $conn->prepare("UPDATE jobs SET title=?, company=?, location=?, salary=?, description=? WHERE id=?");
+        $stmt->bind_param("sssssi", $title, $company, $location, $salary, $description, $id);
     } else {
-        $conn->query("INSERT INTO jobs (title, company, location, salary, description)
-            VALUES ('$title', '$company', '$location', '$salary', '$description')");
+        $stmt = $conn->prepare("INSERT INTO jobs (title, company, location, salary, description) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $title, $company, $location, $salary, $description);
     }
+    $stmt->execute();
+    $stmt->close();
     header("Location: jobs.php");
     exit;
 }
 
-// সব জব লোড
 $jobs = $conn->query("SELECT * FROM jobs ORDER BY id DESC");
 ?>
 
@@ -66,12 +59,7 @@ $jobs = $conn->query("SELECT * FROM jobs ORDER BY id DESC");
         <table class="table table-bordered table-striped">
             <thead class="table-dark">
                 <tr>
-                    <th>ID</th>
-                    <th>শিরোনাম</th>
-                    <th>কোম্পানি</th>
-                    <th>স্থান</th>
-                    <th>বেতন</th>
-                    <th>অ্যাকশন</th>
+                    <th>ID</th><th>শিরোনাম</th><th>কোম্পানি</th><th>স্থান</th><th>বেতন</th><th>অ্যাকশন</th>
                 </tr>
             </thead>
             <tbody>
@@ -94,7 +82,6 @@ $jobs = $conn->query("SELECT * FROM jobs ORDER BY id DESC");
         <a href="dashboard.php" class="btn btn-secondary">← ড্যাশবোর্ডে ফিরুন</a>
     </div>
 
-    <!-- Modal ফর্ম (যোগ/এডিট) -->
     <div class="modal fade" id="jobModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -122,20 +109,16 @@ $jobs = $conn->query("SELECT * FROM jobs ORDER BY id DESC");
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function resetForm() {
-            document.getElementById('job_id').value = '';
-            document.getElementById('title').value = '';
-            document.getElementById('company').value = '';
-            document.getElementById('location').value = '';
-            document.getElementById('salary').value = '';
-            document.getElementById('description').value = '';
+            ['job_id','title','company','location','salary','description'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
         }
-
         function editJob(job) {
-            document.getElementById('job_id').value = job.id;
-            document.getElementById('title').value = job.title;
-            document.getElementById('company').value = job.company;
-            document.getElementById('location').value = job.location;
-            document.getElementById('salary').value = job.salary;
+            document.getElementById('job_id').value      = job.id;
+            document.getElementById('title').value       = job.title;
+            document.getElementById('company').value     = job.company;
+            document.getElementById('location').value    = job.location;
+            document.getElementById('salary').value      = job.salary;
             document.getElementById('description').value = job.description;
         }
     </script>

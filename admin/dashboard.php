@@ -1,12 +1,11 @@
 <?php
-// প্রতিটি admin/*.php ফাইলের শুরুতে
+// ✅ একটাই auth check, exit সহ
 if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
     header("Location: index.php");
     exit;
 }
 
 include '../config/db.php';
-if (!isset($_SESSION['admin_id'])) header("Location: index.php");
 ?>
 <!DOCTYPE html>
 <html>
@@ -25,7 +24,7 @@ if (!isset($_SESSION['admin_id'])) header("Location: index.php");
             <div class="col-md-3"><a href="users.php" class="btn btn-info w-100 mb-2">👥 ইউজার লিস্ট</a></div>
             <div class="col-md-3"><a href="applications.php" class="btn btn-warning w-100 mb-2">📬 আবেদন</a></div>
         </div>
-        <a href="logout.php" class="btn btn-danger">লগআউট</a>
+        <a href="logout.php" class="btn btn-danger mt-3">লগআউট</a>
     </div>
 </body>
 

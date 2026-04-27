@@ -1,17 +1,12 @@
 <?php
-                // প্রতিটি admin/*.php ফাইলের শুরুতে
-                if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
-                    header("Location: index.php");
-                    exit;
-                }
-                
-include '../config/db.php';
-if (!isset($_SESSION['admin_id'])) {
+// ✅ একটাই auth check
+if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
     header("Location: index.php");
     exit;
 }
 
-// সব আবেদন দেখাবে, সর্বশেষ প্রথমে
+include '../config/db.php';
+
 $applications = $conn->query("
     SELECT a.id, u.name as user_name, u.email as user_email, j.title as job_title,
            j.company, a.applied_at
@@ -30,18 +25,8 @@ $applications = $conn->query("
     <title>আবেদন সমূহ - অ্যাডমিন</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .table th {
-            background-color: #2a5298;
-            color: white;
-        }
-
-        .badge-date {
-            background: #e9ecef;
-            color: #2c3e50;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-        }
+        .table th { background-color: #2a5298; color: white; }
+        .badge-date { background: #e9ecef; color: #2c3e50; padding: 5px 10px; border-radius: 20px; font-size: 12px; }
     </style>
 </head>
 
@@ -58,12 +43,8 @@ $applications = $conn->query("
                     <table class="table table-bordered table-hover">
                         <thead>
                             <tr>
-                                <th>ID</th>
-                                <th>প্রার্থীর নাম</th>
-                                <th>ইমেইল</th>
-                                <th>চাকরির শিরোনাম</th>
-                                <th>কোম্পানি</th>
-                                <th>আবেদনের তারিখ</th>
+                                <th>ID</th><th>প্রার্থীর নাম</th><th>ইমেইল</th>
+                                <th>চাকরির শিরোনাম</th><th>কোম্পানি</th><th>আবেদনের তারিখ</th>
                             </tr>
                         </thead>
                         <tbody>

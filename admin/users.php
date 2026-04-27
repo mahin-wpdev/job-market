@@ -1,12 +1,11 @@
 <?php
-                // প্রতিটি admin/*.php ফাইলের শুরুতে
-                if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
-                    header("Location: index.php");
-                    exit;
-                }
-                
+// ✅ একটাই auth check
+if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
+    header("Location: index.php");
+    exit;
+}
+
 include '../config/db.php';
-if (!isset($_SESSION['admin_id'])) header("Location: index.php");
 
 $users = $conn->query("SELECT id, name, email, is_verified, created_at FROM users WHERE role = 'user' ORDER BY id DESC");
 ?>
@@ -15,6 +14,7 @@ $users = $conn->query("SELECT id, name, email, is_verified, created_at FROM user
 <html lang="bn">
 
 <head>
+    <meta charset="UTF-8">
     <title>ইউজার লিস্ট</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -24,13 +24,7 @@ $users = $conn->query("SELECT id, name, email, is_verified, created_at FROM user
         <h2>👥 নিবন্ধিত ইউজার</h2>
         <table class="table table-bordered">
             <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>নাম</th>
-                    <th>ইমেইল</th>
-                    <th>ভেরিফাইড?</th>
-                    <th>যোগদানের তারিখ</th>
-                </tr>
+                <tr><th>ID</th><th>নাম</th><th>ইমেইল</th><th>ভেরিফাইড?</th><th>যোগদানের তারিখ</th></tr>
             </thead>
             <tbody>
                 <?php while ($u = $users->fetch_assoc()): ?>
@@ -39,7 +33,7 @@ $users = $conn->query("SELECT id, name, email, is_verified, created_at FROM user
                         <td><?= htmlspecialchars($u['name']) ?></td>
                         <td><?= htmlspecialchars($u['email']) ?></td>
                         <td><?= $u['is_verified'] ? '✅ হ্যাঁ' : '❌ না' ?></td>
-                        <td><?= $u['created_at'] ?></td>
+                        <td><?= htmlspecialchars($u['created_at']) ?></td>
                     </tr>
                 <?php endwhile; ?>
             </tbody>

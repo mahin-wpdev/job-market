@@ -1,53 +1,51 @@
 <?php
-                            // প্রতিটি admin/*.php ফাইলের শুরুতে
-                            if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
-                                header("Location: index.php");
-                                exit;
-                            }
-                            
-include '../config/db.php';
-if (!isset($_SESSION['admin_id'])) header("Location: index.php");
+if (!isset($_SESSION['admin_id']) || $_SESSION['admin_role'] !== 'admin') {
+    header("Location: index.php");
+    exit;
+}
 
-// ডিলিট
+include '../config/db.php';
+
+// ✅ DELETE — prepared statement + exit
 if (isset($_GET['delete'])) {
     $id = intval($_GET['delete']);
-    $conn->query("DELETE FROM questions WHERE id = $id");
+    $stmt = $conn->prepare("DELETE FROM questions WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $stmt->close();
     header("Location: questions.php");
+    exit;
 }
 
-// সেভ (যোগ বা আপডেট)
+// ✅ INSERT / UPDATE — prepared statement
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['save_question'])) {
-    $id = $_POST['id'] ?? 0;
-    $test_id = $_POST['test_id'];
-    $text = $conn->real_escape_string($_POST['question_text']);
-    $opt_a = $conn->real_escape_string($_POST['opt_a']);
-    $opt_b = $conn->real_escape_string($_POST['opt_b']);
-    $opt_c = $conn->real_escape_string($_POST['opt_c']);
-    $opt_d = $conn->real_escape_string($_POST['opt_d']);
+    $id      = intval($_POST['id'] ?? 0);
+    $test_id = intval($_POST['test_id']);
+    $text    = trim($_POST['question_text']);
+    $opt_a   = trim($_POST['opt_a']);
+    $opt_b   = trim($_POST['opt_b']);
+    $opt_c   = trim($_POST['opt_c']);
+    $opt_d   = trim($_POST['opt_d']);
     $correct = $_POST['correct_opt'];
 
+    // correct_option শুধু a/b/c/d হতে পারে
+    if (!in_array($correct, ['a','b','c','d'])) $correct = 'a';
+
     if ($id) {
-        $conn->query("UPDATE questions SET
-            test_id = $test_id,
-            question_text = '$text',
-            option_a = '$opt_a',
-            option_b = '$opt_b',
-            option_c = '$opt_c',
-            option_d = '$opt_d',
-            correct_option = '$correct'
-            WHERE id = $id");
+        $stmt = $conn->prepare("UPDATE questions SET test_id=?, question_text=?, option_a=?, option_b=?, option_c=?, option_d=?, correct_option=? WHERE id=?");
+        $stmt->bind_param("issssssi", $test_id, $text, $opt_a, $opt_b, $opt_c, $opt_d, $correct, $id);
     } else {
-        $conn->query("INSERT INTO questions (test_id, question_text, option_a, option_b, option_c, option_d, correct_option)
-            VALUES ($test_id, '$text', '$opt_a', '$opt_b', '$opt_c', '$opt_d', '$correct')");
+        $stmt = $conn->prepare("INSERT INTO questions (test_id, question_text, option_a, option_b, option_c, option_d, correct_option) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssss", $test_id, $text, $opt_a, $opt_b, $opt_c, $opt_d, $correct);
     }
+    $stmt->execute();
+    $stmt->close();
     header("Location: questions.php");
+    exit;
 }
 
-// সব প্রশ্ন টেস্টের নামসহ
 $questions = $conn->query("SELECT q.*, t.title as test_title FROM questions q JOIN tests t ON q.test_id = t.id ORDER BY q.id DESC");
-
-// টেস্টের লিস্ট (ড্রপডাউনের জন্য)
-$tests = $conn->query("SELECT id, title FROM tests");
+$tests     = $conn->query("SELECT id, title FROM tests");
 ?>
 
 <!DOCTYPE html>
@@ -66,13 +64,7 @@ $tests = $conn->query("SELECT id, title FROM tests");
 
         <table class="table table-bordered">
             <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>টেস্ট</th>
-                    <th>প্রশ্ন</th>
-                    <th>সঠিক উত্তর</th>
-                    <th>অ্যাকশন</th>
-                </tr>
+                <tr><th>ID</th><th>টেস্ট</th><th>প্রশ্ন</th><th>সঠিক উত্তর</th><th>অ্যাকশন</th></tr>
             </thead>
             <tbody>
                 <?php while ($q = $questions->fetch_assoc()): ?>
@@ -82,16 +74,17 @@ $tests = $conn->query("SELECT id, title FROM tests");
                         <td><?= htmlspecialchars(substr($q['question_text'], 0, 80)) ?></td>
                         <td><?= strtoupper($q['correct_option']) ?></td>
                         <td>
-                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#qModal" onclick="editQuestion(<?= htmlspecialchars(json_encode($q)) ?>)">Edit</button>
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#qModal"
+                                onclick="editQuestion(<?= htmlspecialchars(json_encode($q)) ?>)">Edit</button>
                             <a href="?delete=<?= $q['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('মুছবেন?')">Delete</a>
                         </td>
                     </tr>
                 <?php endwhile; ?>
             </tbody>
         </table>
+        <a href="dashboard.php" class="btn btn-secondary">← ড্যাশবোর্ডে ফিরুন</a>
     </div>
 
-    <!-- Modal ফর্ম -->
     <div class="modal fade" id="qModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -103,8 +96,7 @@ $tests = $conn->query("SELECT id, title FROM tests");
                     <div class="modal-body">
                         <input type="hidden" name="id" id="q_id">
                         <select name="test_id" id="test_id" class="form-select mb-2" required>
-                            <?php $tests->data_seek(0);
-                            while ($t = $tests->fetch_assoc()): ?>
+                            <?php $tests->data_seek(0); while ($t = $tests->fetch_assoc()): ?>
                                 <option value="<?= $t['id'] ?>"><?= htmlspecialchars($t['title']) ?></option>
                             <?php endwhile; ?>
                         </select>
@@ -116,10 +108,8 @@ $tests = $conn->query("SELECT id, title FROM tests");
                             <div class="col-md-6"><input type="text" name="opt_d" id="opt_d" class="form-control mb-1" placeholder="অপশন D"></div>
                         </div>
                         <select name="correct_opt" id="correct_opt" class="form-select mt-2">
-                            <option value="a">A</option>
-                            <option value="b">B</option>
-                            <option value="c">C</option>
-                            <option value="d">D</option>
+                            <option value="a">A</option><option value="b">B</option>
+                            <option value="c">C</option><option value="d">D</option>
                         </select>
                     </div>
                     <div class="modal-footer">
@@ -133,24 +123,20 @@ $tests = $conn->query("SELECT id, title FROM tests");
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function resetQForm() {
-            document.getElementById('q_id').value = '';
-            document.getElementById('question_text').value = '';
-            document.getElementById('opt_a').value = '';
-            document.getElementById('opt_b').value = '';
-            document.getElementById('opt_c').value = '';
-            document.getElementById('opt_d').value = '';
+            ['q_id','question_text','opt_a','opt_b','opt_c','opt_d'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
             document.getElementById('correct_opt').value = 'a';
         }
-
         function editQuestion(q) {
-            document.getElementById('q_id').value = q.id;
-            document.getElementById('test_id').value = q.test_id;
+            document.getElementById('q_id').value          = q.id;
+            document.getElementById('test_id').value       = q.test_id;
             document.getElementById('question_text').value = q.question_text;
-            document.getElementById('opt_a').value = q.option_a;
-            document.getElementById('opt_b').value = q.option_b;
-            document.getElementById('opt_c').value = q.option_c;
-            document.getElementById('opt_d').value = q.option_d;
-            document.getElementById('correct_opt').value = q.correct_option;
+            document.getElementById('opt_a').value         = q.option_a;
+            document.getElementById('opt_b').value         = q.option_b;
+            document.getElementById('opt_c').value         = q.option_c;
+            document.getElementById('opt_d').value         = q.option_d;
+            document.getElementById('correct_opt').value   = q.correct_option;
         }
     </script>
 </body>

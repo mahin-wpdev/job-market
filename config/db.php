@@ -1,8 +1,8 @@
 <?php
-$host   = 'localhost';
-$user   = 'skillverify_user'; // root ব্যবহার করবেন না
-$pass   = 'YOUR_STRONG_PASSWORD'; // শক্তিশালী পাসওয়ার্ড দিন
-$dbname = 'skillverify_db';
+$host   = '49.12.82.48';
+$user   = 'jtexjhen_pay'; // root ব্যবহার করবেন না
+$pass   = 'Ph2x7k7PP.9.Uy'; // শক্তিশালী পাসওয়ার্ড দিন
+$dbname = 'jtexjhen_pay';
 
 $conn = new mysqli($host, $user, $pass, $dbname);
 if ($conn->connect_error) {
